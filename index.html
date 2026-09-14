@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control ESP32</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Arial, sans-serif;
+      background: #101827;
+      color: white;
+    }
+
+    .panel {
+      width: min(90%, 380px);
+      text-align: center;
+      padding: 32px;
+      border-radius: 18px;
+      background: #1f2937;
+      box-shadow: 0 12px 35px #0008;
+    }
+
+    .estado {
+      font-size: 1.2rem;
+      margin: 24px 0;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      margin: 8px 0;
+      border: 0;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .encender { background: #22c55e; color: #062d14; }
+    .apagar { background: #ef4444; color: white; }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="panel">
+    <h1>Control de LED ESP32</h1>
+    <p id="estado" class="estado">Leyendo estado...</p>
+
+    <button class="encender" onclick="cambiarLed(1)">ENCENDER</button>
+    <button class="apagar" onclick="cambiarLed(0)">APAGAR</button>
+  </main>
+
+  <script>
+    const FIREBASE_URL =
+      "https://prueba-de-iot-default-rtdb.firebaseio.com/led.json";
+
+    const estado = document.getElementById("estado");
+
+    async function cambiarLed(valor) {
+      const botones = document.querySelectorAll("button");
+      botones.forEach(boton => boton.disabled = true);
+
+      try {
+        const respuesta = await fetch(FIREBASE_URL, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(valor)
+        });
+
+        if (!respuesta.ok) {
+          throw new Error("Error HTTP: " + respuesta.status);
+        }
+
+        mostrarEstado(valor);
+      } catch (error) {
+        estado.textContent = "Error al conectar con Firebase";
+        console.error(error);
+      } finally {
+        botones.forEach(boton => boton.disabled = false);
+      }
+    }
+
+    async function leerEstado() {
+      try {
+        const respuesta = await fetch(FIREBASE_URL);
+        if (!respuesta.ok) throw new Error("No se pudo leer Firebase");
+
+        const valor = await respuesta.json();
+        mostrarEstado(valor);
+      } catch (error) {
+        estado.textContent = "Sin conexión con Firebase";
+      }
+    }
+
+    function mostrarEstado(valor) {
+      if (valor === 1 || valor === "1") {
+        estado.textContent = "🟢 LED ENCENDIDO";
+      } else {
+        estado.textContent = "🔴 LED APAGADO";
+      }
+    }
+
+    leerEstado();
+    setInterval(leerEstado, 3000);
+  </script>
+</body>
+</html>s
