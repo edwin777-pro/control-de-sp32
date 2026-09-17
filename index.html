@@ -1,119 +1,214 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Control ESP32</title>
-
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      font-family: Arial, sans-serif;
-      background: #101827;
-      color: white;
-    }
-
-    .panel {
-      width: min(90%, 380px);
-      text-align: center;
-      padding: 32px;
-      border-radius: 18px;
-      background: #1f2937;
-      box-shadow: 0 12px 35px #0008;
-    }
-
-    .estado {
-      font-size: 1.2rem;
-      margin: 24px 0;
-    }
-
-    button {
-      width: 100%;
-      padding: 16px;
-      margin: 8px 0;
-      border: 0;
-      border-radius: 10px;
-      font-size: 1.1rem;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .encender { background: #22c55e; color: #062d14; }
-    .apagar { background: #ef4444; color: white; }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: wait;
-    }
-  </style>
-</head>
-
-<body>
-  <main class="panel">
-    <h1>Control de LED ESP32</h1>
-    <p id="estado" class="estado">Leyendo estado...</p>
-
-    <button class="encender" onclick="cambiarLed(1)">ENCENDER</button>
-    <button class="apagar" onclick="cambiarLed(0)">APAGAR</button>
-  </main>
-
-  <script>
-    const FIREBASE_URL =
-      "https://prueba-de-iot-default-rtdb.firebaseio.com/led.json";
-
-    const estado = document.getElementById("estado");
-
-    async function cambiarLed(valor) {
-      const botones = document.querySelectorAll("button");
-      botones.forEach(boton => boton.disabled = true);
-
-      try {
-        const respuesta = await fetch(FIREBASE_URL, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(valor)
-        });
-
-        if (!respuesta.ok) {
-          throw new Error("Error HTTP: " + respuesta.status);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control ESP32 - HiveMQ</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
-        mostrarEstado(valor);
-      } catch (error) {
-        estado.textContent = "Error al conectar con Firebase";
-        console.error(error);
-      } finally {
-        botones.forEach(boton => boton.disabled = false);
-      }
-    }
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-    async function leerEstado() {
-      try {
-        const respuesta = await fetch(FIREBASE_URL);
-        if (!respuesta.ok) throw new Error("No se pudo leer Firebase");
+        .card {
+            background-color: #1e293b;
+            border-radius: 16px;
+            padding: 28px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+        }
 
-        const valor = await respuesta.json();
-        mostrarEstado(valor);
-      } catch (error) {
-        estado.textContent = "Sin conexión con Firebase";
-      }
-    }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
 
-    function mostrarEstado(valor) {
-      if (valor === 1 || valor === "1") {
-        estado.textContent = "🟢 LED ENCENDIDO";
-      } else {
-        estado.textContent = "🔴 LED APAGADO";
-      }
-    }
+        .header h2 {
+            font-size: 1.5rem;
+            color: #f1f5f9;
+            margin-bottom: 6px;
+        }
 
-    leerEstado();
-    setInterval(leerEstado, 3000);
-  </script>
+        .status-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 24px;
+            padding: 8px;
+            background-color: #0f172a;
+            border-radius: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            transition: background-color 0.3s ease;
+        }
+
+        .status-dot.connected {
+            background-color: #22c55e;
+        }
+
+        .status-dot.connecting {
+            background-color: #eab308;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-on {
+            background-color: #22c55e;
+            color: #052e16;
+        }
+
+        .btn-on:hover:not(:disabled) {
+            background-color: #16a34a;
+        }
+
+        .btn-off {
+            background-color: #ef4444;
+            color: #450a0a;
+        }
+
+        .btn-off:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+
+        .log-box {
+            margin-top: 24px;
+            background-color: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.82rem;
+            color: #38bdf8;
+            height: 100px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="header">
+            <h2>Control ESP32 LED</h2>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">HiveMQ Cloud WebSockets</p>
+        </div>
+
+        <div class="status-container">
+            <div id="statusDot" class="status-dot connecting"></div>
+            <span id="statusText">Conectando a HiveMQ...</span>
+        </div>
+
+        <div class="btn-group">
+            <button id="btnOn" class="btn btn-on" onclick="enviarComando('1')" disabled>
+                💡 ENCENDER LED
+            </button>
+            <button id="btnOff" class="btn btn-off" onclick="enviarComando('0')" disabled>
+                🔌 APAGAR LED
+            </button>
+        </div>
+
+        <div id="log" class="log-box">Iniciando conexión...<br></div>
+    </div>
+
+    <script>
+        const options = {
+            clientId: 'WebClient_' + Math.random().toString(16).substr(2, 8),
+            username: 'sp32',
+            password: '123456789',
+            clean: true,
+            connectTimeout: 4000,
+            reconnectPeriod: 2000,
+        };
+
+        const host = 'wss://810eb95b7b3f456990ad8fce9280f402.s1.eu.hivemq.cloud:8884/mqtt';
+        const topic = 'cnc/control';
+
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const btnOn = document.getElementById('btnOn');
+        const btnOff = document.getElementById('btnOff');
+        const log = document.getElementById('log');
+
+        function addLog(msg) {
+            log.innerHTML += msg + '<br>';
+            log.scrollTop = log.scrollHeight;
+        }
+
+        const client = mqtt.connect(host, options);
+
+        client.on('connect', () => {
+            statusDot.className = 'status-dot connected';
+            statusText.innerText = 'Conectado a HiveMQ';
+            btnOn.disabled = false;
+            btnOff.disabled = false;
+            addLog('Conexión establecida.');
+        });
+
+        client.on('reconnect', () => {
+            statusDot.className = 'status-dot connecting';
+            statusText.innerText = 'Reconectando...';
+            btnOn.disabled = true;
+            btnOff.disabled = true;
+            addLog('Reconectando...');
+        });
+
+        client.on('error', (err) => {
+            statusDot.className = 'status-dot';
+            statusText.innerText = 'Error de conexión';
+            addLog('Error: ' + err.message);
+        });
+
+        function enviarComando(valor) {
+            if (client.connected) {
+                client.publish(topic, valor);
+                addLog('Enviado: ' + valor);
+            }
+        }
+    </script>
 </body>
-</html>s
+</html>
